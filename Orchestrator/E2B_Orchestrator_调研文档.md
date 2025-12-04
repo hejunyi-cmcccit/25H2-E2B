@@ -39,9 +39,11 @@ E2B使用**Firecracker**而非Docker容器，关键对比：
 
 ### 1.3 核心API
 
-Proto定义：`packages/orchestrator/orchestrator.proto:114-122`
+#### 沙箱服务
 
-```protobuf
+proto定义：`packages/orchestrator/orchestrator.proto:114-122`
+
+```proto
 service SandboxService {
   rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
   rpc Update(SandboxUpdateRequest) returns (google.protobuf.Empty);
@@ -51,6 +53,31 @@ service SandboxService {
   rpc ListCachedBuilds(google.protobuf.Empty) returns (SandboxListCachedBuildsResponse);
 }
 ```
+
+- **[接口执行流程图](./CmuxServer/grpc/sandbox/sandboxservice.drawio)**
+
+#### 模板服务
+
+proto定义：`packages/orchestrator/template-manager.proto:150-163`
+
+```proto
+// Interface exported by the server.
+service TemplateService {
+  // TemplateCreate is a gRPC service that creates a new template
+  rpc TemplateCreate (TemplateCreateRequest) returns (google.protobuf.Empty);
+
+  // TemplateStatus is a gRPC service that streams the status of a template build
+  rpc TemplateBuildStatus (TemplateStatusRequest) returns (TemplateBuildStatusResponse);
+
+  // TemplateBuildDelete is a gRPC service that deletes files associated with a template build
+  rpc TemplateBuildDelete (TemplateBuildDeleteRequest) returns (google.protobuf.Empty);
+
+  // InitLayerFileUpload requests an upload URL for a tar file containing layer files to be cached for the template build.
+  rpc InitLayerFileUpload (InitLayerFileUploadRequest) returns (InitLayerFileUploadResponse);
+}
+```
+
+- **[接口执行流程图](./CmuxServer/grpc/template/templateservice.drawio)**
 
 ### 1.4 典型应用场景
 
@@ -65,6 +92,8 @@ service SandboxService {
 ## 2. Orchestrator架构概览
 
 ### 2.1 Main.go执行流程
+
+**[E2B_Orchestrator 启动流程图](./E2B_Orchestrator_main.drawio)**
 
 **入口文件**：`packages/orchestrator/main.go`
 
@@ -217,15 +246,15 @@ graph TB
 
 #### 各服务详细说明
 
-| 服务                   | 代码位置                                              | 职责         | 比喻              |
-| -------------------- | ------------------------------------------------- | ---------- | --------------- |
-| **CMux Server**      | `internal/factories/cmux.go`                      | 端口复用，协议路由  | 门卫：根据来访者身份指路    |
-| **gRPC Server**      | `main.go:402-435`                                 | 管理API，接收命令 | 总机：接听电话，下达指令    |
-| **HTTP Server**      | `main.go:458-480`                                 | 健康检查       | 体检中心：随时报告健康状态   |
-| **Sandbox Proxy**    | `internal/proxy/proxy.go:37-112`                  | 流量路由到沙箱    | 快递员：把包裹送到正确房间   |
-| **Hyperloop Server** | `internal/hyperloopserver/handlers/logs.go:14-64` | 日志收集代理     | 邮局：收集并转发所有信件    |
-| **Network Pool**     | `internal/sandbox/network/pool.go:108-129`        | 预创建网络命名空间  | 泳池：预先准备好泳道供使用   |
-| **NBD Device Pool**  | `internal/sandbox/nbd/pool.go:70-101`             | 管理块设备      | 储物柜管理员：分配和回收储物柜 |
+| 服务                 | 代码位置                                          | 职责               |
+| -------------------- | ------------------------------------------------- | ------------------ |
+| **CMux Server**      | `internal/factories/cmux.go`                      | 端口复用，协议路由 |
+| **gRPC Server**      | `main.go:402-435`                                 | 管理API，接收命令  |
+| **HTTP Server**      | `main.go:458-480`                                 | 健康检查           |
+| **Sandbox Proxy**    | `internal/proxy/proxy.go:37-112`                  | 流量路由到沙箱     |
+| **Hyperloop Server** | `internal/hyperloopserver/handlers/logs.go:14-64` | 日志收集代理       |
+| **Network Pool**     | `internal/sandbox/network/pool.go:108-129`        | 预创建网络命名空间 |
+| **NBD Device Pool**  | `internal/sandbox/nbd/pool.go:70-101`             | 管理块设备         |
 
 **关键代码位置**：
 
